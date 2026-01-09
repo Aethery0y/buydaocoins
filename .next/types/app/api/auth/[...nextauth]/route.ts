@@ -1,4 +1,4 @@
-// File: /var/www/buydaocoins.aethexiz.com/app/api/auth/[...nextauth]/route.ts
+// File: C:\Users\aethe\Documents\Development\testing\testingbots\Asda-Basket\buydaocoins.aethexiz.com\app\api\auth\[...nextauth]\route.ts
 import * as entry from '../../../../../../app/api/auth/[...nextauth]/route.js'
 import type { NextRequest } from 'next/server.js'
 

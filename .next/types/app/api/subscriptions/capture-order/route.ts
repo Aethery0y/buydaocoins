@@ -1,4 +1,4 @@
-// File: /var/www/buydaocoins.aethexiz.com/app/api/subscriptions/capture-order/route.ts
+// File: C:\Users\aethe\Documents\Development\testing\testingbots\Asda-Basket\buydaocoins.aethexiz.com\app\api\subscriptions\capture-order\route.ts
 import * as entry from '../../../../../../app/api/subscriptions/capture-order/route.js'
 import type { NextRequest } from 'next/server.js'
 

@@ -79,8 +79,11 @@ export default function SubscriptionsPage() {
         })
       });
 
-      if (!res.ok) throw new Error('Failed to create order');
-      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create order');
+      }
+
       const data = await res.json();
       if (data.approvalUrl) {
         window.location.href = data.approvalUrl;
@@ -112,7 +115,7 @@ export default function SubscriptionsPage() {
                 <div className="text-green-400 text-sm">+{currentSub.qi_boost_percent}% Active</div>
               </div>
               <div className="text-right text-xs text-gray-400">
-                Expires<br/>{new Date(currentSub.expires_at).toLocaleDateString()}
+                Expires<br />{new Date(currentSub.expires_at).toLocaleDateString()}
               </div>
             </div>
           </div>
@@ -125,11 +128,10 @@ export default function SubscriptionsPage() {
               <button
                 key={t.id}
                 onClick={() => setSelectedTier(t.id)}
-                className={`w-full p-3 rounded-lg flex items-center justify-between transition-all ${
-                  selectedTier === t.id 
-                    ? 'bg-amber-500/20 border border-amber-500' 
+                className={`w-full p-3 rounded-lg flex items-center justify-between transition-all ${selectedTier === t.id
+                    ? 'bg-amber-500/20 border border-amber-500'
                     : 'bg-white/5 border border-transparent hover:bg-white/10'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{t.emoji}</span>
@@ -156,11 +158,10 @@ export default function SubscriptionsPage() {
               <button
                 key={d.months}
                 onClick={() => setSelectedDuration(d.months)}
-                className={`p-3 rounded-lg text-center transition-all ${
-                  selectedDuration === d.months 
-                    ? 'bg-amber-500/20 border border-amber-500' 
+                className={`p-3 rounded-lg text-center transition-all ${selectedDuration === d.months
+                    ? 'bg-amber-500/20 border border-amber-500'
                     : 'bg-white/5 border border-transparent hover:bg-white/10'
-                }`}
+                  }`}
               >
                 <div className="text-white font-medium text-sm">{d.label}</div>
                 {d.discount > 0 && (
@@ -197,17 +198,16 @@ export default function SubscriptionsPage() {
         <button
           onClick={handlePurchase}
           disabled={loading}
-          className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all ${
-            loading ? 'bg-gray-600' : 
-            isUpgrade ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700' :
-            isExtend ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' :
-            'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
-          }`}
+          className={`w-full py-4 rounded-xl font-bold text-white text-lg transition-all ${loading ? 'bg-gray-600' :
+              isUpgrade ? 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700' :
+                isExtend ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700' :
+                  'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
+            }`}
         >
-          {loading ? 'Processing...' : 
-           isUpgrade ? `Upgrade - $${finalPrice.toFixed(2)}` :
-           isExtend ? `Extend - $${finalPrice.toFixed(2)}` :
-           `Subscribe - $${finalPrice.toFixed(2)}`}
+          {loading ? 'Processing...' :
+            isUpgrade ? `Upgrade - $${finalPrice.toFixed(2)}` :
+              isExtend ? `Extend - $${finalPrice.toFixed(2)}` :
+                `Subscribe - $${finalPrice.toFixed(2)}`}
         </button>
 
         <p className="text-center text-gray-500 text-xs mt-4">

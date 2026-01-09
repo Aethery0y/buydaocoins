@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import pool from '@/lib/db';
+import poolDS1 from '@/lib/dbDS1';
+import type { RowDataPacket } from 'mysql2';
 
 const subscriptionTiers: { [key: number]: { name: string; qiBoostPercent: number; pricePerMonth: number } } = {
   1: { name: 'Cultivator', qiBoostPercent: 100, pricePerMonth: 5 },
@@ -18,21 +21,25 @@ const durationDiscounts: { [key: number]: number } = {
 function calculatePrice(tierId: number, months: number): number {
   const tier = subscriptionTiers[tierId];
   if (!tier) return 0;
-  
+
   const basePrice = tier.pricePerMonth * months;
   const discount = durationDiscounts[months] || 0;
   const discountAmount = (basePrice * discount) / 100;
   return Math.round((basePrice - discountAmount) * 100) / 100;
 }
 
+function getPool(server: string) {
+  return server === 'DS1' ? poolDS1 : pool;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { tierId, months, amount, discordId: codeAuthDiscordId, server } = body;
-    
+
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || codeAuthDiscordId;
-    
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -40,6 +47,33 @@ export async function POST(req: Request) {
     const tier = subscriptionTiers[tierId];
     if (!tier) {
       return NextResponse.json({ error: 'Invalid tier' }, { status: 400 });
+    }
+
+    // TIER PROTECTION: Prevent downgrading while an active subscription exists
+    try {
+      const dbPool = getPool(server || 'S0');
+      const [activeSubs] = await dbPool.execute<RowDataPacket[]>(
+        `SELECT tier FROM player_subscriptions 
+         WHERE user_id = ? AND is_active = TRUE AND expires_at > NOW() 
+         ORDER BY expires_at DESC LIMIT 1`,
+        [userId]
+      );
+
+      if (activeSubs.length > 0) {
+        const currentTierId = activeSubs[0].tier;
+        if (tierId < currentTierId) {
+          const currentTierName = subscriptionTiers[currentTierId]?.name || 'Higher Tier';
+          return NextResponse.json({
+            error: `Cannot downgrade! You have an active ${currentTierName} subscription. Please wait for it to expire or upgrade/extend with the same tier.`
+          }, { status: 400 });
+        }
+      }
+    } catch (dbError) {
+      console.error('Database error checking active subscription:', dbError);
+      // We don't block the purchase on DB error, but log it. 
+      // Safer to allow purchase if DB check fails? Or safer to block? 
+      // Blocking is safer to prevent accidents.
+      return NextResponse.json({ error: 'Failed to verify subscription status' }, { status: 500 });
     }
 
     if (![1, 6, 12].includes(months)) {
@@ -53,8 +87,8 @@ export async function POST(req: Request) {
 
     const paypalClientId = process.env.PAYPAL_CLIENT_ID;
     const paypalSecret = process.env.PAYPAL_CLIENT_SECRET;
-    const paypalBaseUrl = process.env.PAYPAL_MODE === 'live' 
-      ? 'https://api-m.paypal.com' 
+    const paypalBaseUrl = process.env.PAYPAL_MODE === 'live'
+      ? 'https://api-m.paypal.com'
       : 'https://api-m.sandbox.paypal.com';
 
     if (!paypalClientId || !paypalSecret) {
@@ -83,10 +117,10 @@ export async function POST(req: Request) {
 
     const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
     const forwardedProto = req.headers.get('x-forwarded-proto') || 'https';
-    const baseUrl = forwardedHost 
+    const baseUrl = forwardedHost
       ? `${forwardedProto}://${forwardedHost}`
       : process.env.NEXT_PUBLIC_BASE_URL || 'https://buydaocoins.replit.app';
-    
+
     const orderResponse = await fetch(`${paypalBaseUrl}/v2/checkout/orders`, {
       method: 'POST',
       headers: {
